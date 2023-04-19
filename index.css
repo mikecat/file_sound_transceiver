@@ -1,0 +1,45 @@
+.operation-button {
+	padding: 0.5em 1em;
+}
+
+#customBaudRateInput:not(.custom-selected) {
+	display: none;
+}
+
+.field-grid {
+	display: grid;
+	grid-template-columns: auto 1fr;
+}
+
+.field-name {
+	margin-right: 0.5em;
+}
+
+select, input[type="text"] {
+	margin-bottom: 0.5em;
+}
+
+#fileToSendDropArea {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	height: 100%;
+	border: 1px solid black;
+	box-sizing: border-box;
+}
+
+#textToSend {
+	display: none;
+}
+
+#signalDetected:not(.detected) {
+	display: none;
+}
+
+.basic-table {
+	border: 1px solid black;
+}
+
+.basic-table th, .basicTable td {
+	border: 1px solid black;
+}

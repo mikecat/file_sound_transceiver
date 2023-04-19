@@ -13,8 +13,105 @@
 <meta name="twitter:site" content="@mikecat_mixc">
 <meta name="description" content="ファイルデータをMSXで使用される形式の音声で送受信するツールです。">
 <meta name="author" content="みけCAT">
+<link href="index.css" rel="stylesheet">
 </head>
 <body>
 <h1>File Sound Transceiver</h1>
+<h2>音声設定</h2>
+<p>
+<button type="button" class="operation-button" id="connectButton" style="margin-right: 0.5em;">接続</button>
+<button type="button" class="operation-button" id="disconnectButton" disabled>切断</button>
+</p>
+<p class="field-grid">
+<span class="field-name">入力デバイス</span>
+<span><select id="inputDeviceSelect" disabled></select></span>
+<span class="field-name">出力デバイス</span>
+<span><select id="outputDeviceSelect" disabled></select></span>
+<span class="field-name">ボーレート</span>
+<span><select id="baudRateSelect">
+<option value="1200" selected>1200</option>
+<option value="2400">2400</option>
+<option value="custom">カスタム</option>
+</select>
+<input type="number" id="customBaudRateInput" size="8" value="1200">
+</span>
+</p>
+
+<h2>送信</h2>
+<p class="field-grid">
+<span class="field-name">送信形式</span>
+<span><select id="sendType">
+<option name="csave">CSAVE (BASIC中間形式)</option>
+<option name="save" selected>SAVE (ASCIIテキスト)</option>
+<option name="bsave">BSAVE (バイナリ)</option>
+<option name="xmodem">XMODEM (双方向通信による転送)</option>
+</select></span>
+<span class="field-name">ファイル名</span>
+<span>
+<input type="text" id="sendFileName" size="8" maxlength="6" value="A" style="margin-right: 0.5em;">
+<input type="checkbox" id="setSendFileNameOnFileSelection" checked>
+<label for="setSendFileNameOnFileSelection">ファイル選択時に自動設定する</label>
+</span>
+<span class="field-name">BSAVEオプション</span>
+<span>
+<input type="checkbox" id="bsaveGetAddressFromFile">
+<label for="bsaveGetAddressFromFile">送信するファイルはヘッダー付き</label><br>
+先頭アドレス<input type="text" id="bsaveStoreAddress" size="8" value="0xE000" style="margin-left: 0.5em; margin-right: 0.5em;">
+実行開始アドレス<input type="text" id="bsaveRunAddress" size="8" value="0xE000" style="margin-left: 0.5em;" margin-right: 0.5em;" disabled>
+<input type="checkbox" id="bsaveRunAddressIsStoreAddress"checked>
+<label for="bsaveRunAddressIsStoreAddress">先頭アドレスと同じ</label>
+</span>
+<span class="field-name">送信データ</span>
+<span><select id="whatToSend">
+<option value="file" selected>ファイル</option>
+<option value="text">テキスト</option>
+</select><br>
+<span style="display: inline-block; width: 100%; height: 7em;">
+<span id="fileToSendDropArea">
+<span style="margin-left: 1em;">
+<span style="display: inline-block; margin-bottom: 1em;">
+<button type="button" id="sendFileSelectButton" style="margin-right: 0.5em;">ファイルを選択</button>
+またはファイルをこの枠内にドラッグ&amp;ドロップして選択
+</span><br>
+<span>ファイルが選択されていません</span>
+</span>
+</span>
+<textarea id="textToSend" style="width: 100%; height: 100%; box-sizing: border-box;"></textarea>
+</span></span>
+</p>
+<p>
+<button type="button" class="operation-button" id="startSendButton" style="margin-right: 0.5em;" disabled>送信開始</button>
+<button type="button" class="operation-button" id="cancelSendButton" style="margin-right: 0.5em;" disabled>送信中止</button>
+<progress id="sendProgress" value="0" style="width: 20em; margin-right: 0.5em;"></progress>
+<span id="sendStatus">送信待機中</span>
+</p>
+
+<h2>受信</h2>
+<p>
+信号レベル
+<meter id="receiveSignalMeter" style="width: 20em; margin-left: 0.5em; margin-right: 0.5em;"></meter>
+<span id="signalDetected">有効な信号を検出中</span>
+</p>
+<p>
+<input type="checkbox" id="useCrcForXmodemRecelve" checked>
+<label for="useCrcForXmodemRecelve">XMODEMでCRCを使用する</label>
+</p>
+<p>
+<button type="button" class="operation-button" id="startXmodemReceiveButton" style="margin-right: 0.5em;" disabled>XMODEM受信開始</button>
+<button type="button" class="operation-button" id="cancelReceiveButton" style="margin-right: 0.5em;" disabled>受信中止</button>
+<span id="receiveStatus"></span>
+</p>
+<table class="basic-table">
+<thead><tr>
+<th>受信終了日時</th>
+<th>種類</th>
+<th>ファイル名</th>
+<th>ファイルサイズ</th>
+<th>操作</th>
+</tr></thead>
+<tbody id="receiveTableBody">
+</tbody>
+</table>
+
 </body>
 </html>
