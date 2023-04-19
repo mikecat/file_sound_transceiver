@@ -14,100 +14,190 @@
 <meta name="description" content="ファイルデータをMSXで使用される形式の音声で送受信するツールです。">
 <meta name="author" content="みけCAT">
 <link href="index.css" rel="stylesheet">
+<script src="fst.js"></script>
 </head>
 <body>
+<p><select id="languageSelect">
+<option value="ja" selected>日本語</option>
+<option value="en">English</option>
+</select></p>
 <h1>File Sound Transceiver</h1>
-<h2>音声設定</h2>
+<h2>
+<span class="lang-ja">音声設定</span>
+<span class="lang-en">Sound Configuration</span>
+</h2>
 <p>
-<button type="button" class="operation-button" id="connectButton" style="margin-right: 0.5em;">接続</button>
-<button type="button" class="operation-button" id="disconnectButton" disabled>切断</button>
+<button type="button" class="operation-button" id="connectButton" style="margin-right: 0.5em;">
+<span class="lang-ja">接続</span>
+<span class="lang-en">Connect</span>
+</button>
+<button type="button" class="operation-button" id="disconnectButton" disabled>
+<span class="lang-ja">切断</span>
+<span class="lang-en">Disconnect</span>
+</button>
 </p>
 <p class="field-grid">
-<span class="field-name">入力デバイス</span>
+<span class="field-name">
+<span class="lang-ja">入力デバイス</span>
+<span class="lang-en">Input Device</span>
+</span>
 <span><select id="inputDeviceSelect" disabled></select></span>
-<span class="field-name">出力デバイス</span>
+<span class="field-name">
+<span class="lang-ja">出力デバイス</span>
+<span class="lang-en">Output Device</span>
+</span>
 <span><select id="outputDeviceSelect" disabled></select></span>
-<span class="field-name">ボーレート</span>
+<span class="field-name">
+<span class="lang-ja">ボーレート</span>
+<span class="lang-en">Baud Rate</span>
+</span>
 <span><select id="baudRateSelect">
 <option value="1200" selected>1200</option>
 <option value="2400">2400</option>
-<option value="custom">カスタム</option>
+<option value="custom" class="lang-ja">カスタム</option>
+<option value="custom" class="lang-en">Custom</option>
 </select>
 <input type="number" id="customBaudRateInput" size="8" value="1200">
 </span>
 </p>
 
-<h2>送信</h2>
+<h2>
+<span class="lang-ja">送信</span>
+<span class="lang-en">Sending</span>
+</h2>
 <p class="field-grid">
-<span class="field-name">送信形式</span>
+<span class="field-name">
+<span class="lang-ja">送信形式</span>
+<span class="lang-en">Sending Format</span>
+</span>
 <span><select id="sendType">
-<option name="csave">CSAVE (BASIC中間形式)</option>
-<option name="save" selected>SAVE (ASCIIテキスト)</option>
-<option name="bsave">BSAVE (バイナリ)</option>
-<option name="xmodem">XMODEM (双方向通信による転送)</option>
+<option value="csave" class="lang-ja">CSAVE (BASIC中間形式)</option>
+<option value="csave" class="lang-en">CSAVE (intermediate format for BASIC)</option>
+<option value="save" class="lang-ja" selected>SAVE (ASCIIテキスト)</option>
+<option value="save" class="lang-en">SAVE (ASCII text)</option>
+<option value="bsave" class="lang-ja">BSAVE (バイナリ)</option>
+<option value="bsave" class="lang-en">BSAVE (binary)</option>
+<option value="xmodem" class="lang-ja">XMODEM (双方向通信による転送)</option>
+<option value="xmodem" class="lang-en">XMODEM (bidirectional communication)</option>
 </select></span>
-<span class="field-name">ファイル名</span>
+<span class="field-name">
+<span class="lang-ja">ファイル名</span>
+<span class="lang-en">File Name</span>
+</span>
 <span>
 <input type="text" id="sendFileName" size="8" maxlength="6" value="A" style="margin-right: 0.5em;">
 <input type="checkbox" id="setSendFileNameOnFileSelection" checked>
-<label for="setSendFileNameOnFileSelection">ファイル選択時に自動設定する</label>
+<label for="setSendFileNameOnFileSelection">
+<span class="lang-ja">ファイル選択時に自動設定する</span>
+<span class="lang-en">Automatically set on file selection</span>
+</label>
 </span>
-<span class="field-name">BSAVEオプション</span>
+<span class="field-name">
+<span class="lang-ja">BSAVEオプション</span>
+<span class="lang-en">Options for BSAVE</span>
+</span>
 <span>
 <input type="checkbox" id="bsaveGetAddressFromFile">
-<label for="bsaveGetAddressFromFile">送信するファイルはヘッダー付き</label><br>
-先頭アドレス<input type="text" id="bsaveStoreAddress" size="8" value="0xE000" style="margin-left: 0.5em; margin-right: 0.5em;">
-実行開始アドレス<input type="text" id="bsaveRunAddress" size="8" value="0xE000" style="margin-left: 0.5em;" margin-right: 0.5em;" disabled>
+<label for="bsaveGetAddressFromFile">
+<span class="lang-ja">送信するファイルはBSAVEヘッダー付き</span>
+<span class="lang-en">Files to send has the BSAVE header</span>
+</label><br>
+<span class="lang-ja">先頭アドレス</span>
+<span class="lang-en">First address to place</span>
+<input type="text" id="bsaveStoreAddress" size="8" value="0xE000" style="margin-left: 0.5em; margin-right: 0.5em;">
+<span class="lang-ja">実行開始アドレス</span>
+<span class="lang-en">Address to execute</span>
+<input type="text" id="bsaveRunAddress" size="8" value="0xE000" style="margin-left: 0.5em;" margin-right: 0.5em;" disabled>
 <input type="checkbox" id="bsaveRunAddressIsStoreAddress"checked>
-<label for="bsaveRunAddressIsStoreAddress">先頭アドレスと同じ</label>
+<label for="bsaveRunAddressIsStoreAddress">
+<span class="lang-ja">先頭アドレスと同じ</span>
+<span class="lang-en">Same as the first address to place</span>
+</label>
 </span>
-<span class="field-name">送信データ</span>
+<span class="field-name">
+<span class="lang-ja">送信データ</span>
+<span class="lang-en">Data to send</span>
+</span>
 <span><select id="whatToSend">
-<option value="file" selected>ファイル</option>
-<option value="text">テキスト</option>
+<option value="file" class="lang-ja" selected>ファイル</option>
+<option value="file" class="lang-en">File</option>
+<option value="text" class="lang-ja">テキスト</option>
+<option value="text" class="lang-en">Text</option>
 </select><br>
 <span style="display: inline-block; width: 100%; height: 7em;">
 <span id="fileToSendDropArea">
 <span style="margin-left: 1em;">
 <span style="display: inline-block; margin-bottom: 1em;">
-<button type="button" id="sendFileSelectButton" style="margin-right: 0.5em;">ファイルを選択</button>
-またはファイルをこの枠内にドラッグ&amp;ドロップして選択
+<button type="button" id="sendFileSelectButton" style="margin-right: 0.5em;">
+<span class="lang-ja">ファイルを選択</span>
+<span class="lang-en">Select a file</span>
+</button>
+<span class="lang-ja">またはファイルをこの枠内にドラッグ&amp;ドロップして選択</span>
+<span class="lang-en">or drag-and-drop the file to select into this box.</span>
 </span><br>
-<span>ファイルが選択されていません</span>
+<span>
+<span class="lang-ja">ファイルが選択されていません</span>
+<span class="lang-en">No file is selected.</span>
+</span>
 </span>
 </span>
 <textarea id="textToSend" style="width: 100%; height: 100%; box-sizing: border-box;"></textarea>
 </span></span>
 </p>
 <p>
-<button type="button" class="operation-button" id="startSendButton" style="margin-right: 0.5em;" disabled>送信開始</button>
-<button type="button" class="operation-button" id="cancelSendButton" style="margin-right: 0.5em;" disabled>送信中止</button>
+<button type="button" class="operation-button" id="startSendButton" style="margin-right: 0.5em;" disabled>
+<span class="lang-ja">送信開始</span>
+<span class="lang-en">Send</span>
+</button>
+<button type="button" class="operation-button" id="cancelSendButton" style="margin-right: 0.5em;" disabled>
+<span class="lang-ja">送信中止</span>
+<span class="lang-en">Cancel sending</span>
+</button>
 <progress id="sendProgress" value="0" style="width: 20em; margin-right: 0.5em;"></progress>
-<span id="sendStatus">送信待機中</span>
+<span id="sendStatus">
+<span class="lang-ja">送信待機中</span>
+<span class="lang-en">Stand by</span>
+</span>
 </p>
 
-<h2>受信</h2>
+<h2>
+<span class="lang-ja">受信</span>
+<span class="lang-en">Receiving</span>
+</h2>
 <p>
-信号レベル
+<span class="lang-ja">信号レベル</span>
+<span class="lang-en">Signal Level</span>
 <meter id="receiveSignalMeter" style="width: 20em; margin-left: 0.5em; margin-right: 0.5em;"></meter>
-<span id="signalDetected">有効な信号を検出中</span>
+<span id="signalDetected">
+<span class="lang-ja">有効な信号を検出中</span>
+<span class="lang-en">Valid signal is detected</span>
+</span>
 </p>
 <p>
 <input type="checkbox" id="useCrcForXmodemRecelve" checked>
-<label for="useCrcForXmodemRecelve">XMODEMでCRCを使用する</label>
+<label for="useCrcForXmodemRecelve">
+<span class="lang-ja">XMODEMでCRCを使用する</span>
+<span class="lang-en">Use CRC for XMODEM</span>
+</label>
 </p>
 <p>
-<button type="button" class="operation-button" id="startXmodemReceiveButton" style="margin-right: 0.5em;" disabled>XMODEM受信開始</button>
-<button type="button" class="operation-button" id="cancelReceiveButton" style="margin-right: 0.5em;" disabled>受信中止</button>
+<button type="button" class="operation-button" id="startXmodemReceiveButton" style="margin-right: 0.5em;" disabled>
+<span class="lang-ja">XMODEM受信開始</span>
+<span class="lang-en">Receive via XMODEM</span>
+</button>
+<button type="button" class="operation-button" id="cancelReceiveButton" style="margin-right: 0.5em;" disabled>
+<span class="lang-ja">受信中止</span>
+<span class="lang-en">Cancel receiving</span>
+</button>
 <span id="receiveStatus"></span>
 </p>
 <table class="basic-table">
 <thead><tr>
-<th>受信終了日時</th>
-<th>種類</th>
-<th>ファイル名</th>
-<th>ファイルサイズ</th>
-<th>操作</th>
+<th><span class="lang-ja">受信終了日時</span><span class="lang-en">Time Received</th>
+<th><span class="lang-ja">種類</span><span class="lang-en">Kind</span></th>
+<th><span class="lang-ja">ファイル名</span><span class="lang-en">File Name</span></th>
+<th><span class="lang-ja">ファイルサイズ</span><span class="lang-en">File Size</span></th>
+<th><span class="lang-ja">操作</span><span class="lang-en">Operation</span></th>
 </tr></thead>
 <tbody id="receiveTableBody">
 </tbody>
