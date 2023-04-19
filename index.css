@@ -50,4 +50,5 @@ select, input[type="text"] {
 
 .basic-table th, .basicTable td {
 	border: 1px solid black;
+	padding: 0.2em 0.3em;
 }
