@@ -36,7 +36,11 @@ select, input[type="text"] {
 	box-sizing: border-box;
 }
 
-#textToSend {
+#dataToSendArea:not(.send-file-mode) #fileToSendDropArea {
+	display: none;
+}
+
+#dataToSendArea.send-file-mode #textToSend {
 	display: none;
 }
 

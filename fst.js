@@ -51,4 +51,44 @@ window.addEventListener("DOMContentLoaded", function() {
 	};
 	elems.languageSelect.addEventListener("change", updateLanguage);
 	updateLanguage();
+
+	const updateBaudRateStatus = function() {
+		if (elems.baudRateSelect.value === "custom") {
+			elems.customBaudRateInput.classList.add("custom-selected");
+		} else {
+			elems.customBaudRateInput.classList.remove("custom-selected");
+		}
+	}
+	elems.baudRateSelect.addEventListener("change", updateBaudRateStatus);
+	updateBaudRateStatus();
+
+	const updateSendOptionStatus = function() {
+		const isXmodem = elems.sendType.value === "xmodem";
+		elems.sendFileName.disabled = isXmodem;
+		elems.setSendFileNameOnFileSelection.disabled = isXmodem;
+		if (elems.bsaveGetAddressFromFile.checked || elems.sendType.value !== "bsave") {
+			elems.bsaveStoreAddress.disabled = true;
+			elems.bsaveRunAddressIsStoreAddress.disabled = true;
+			elems.bsaveRunAddress.disabled = true;
+		} else {
+			elems.bsaveStoreAddress.disabled = false;
+			elems.bsaveRunAddressIsStoreAddress.disabled = false;
+			elems.bsaveRunAddress.disabled = elems.bsaveRunAddressIsStoreAddress.checked;
+		}
+		elems.bsaveGetAddressFromFile.disabled = elems.sendType.value !== "bsave";
+	};
+	elems.sendType.addEventListener("change", updateSendOptionStatus);
+	elems.bsaveGetAddressFromFile.addEventListener("change", updateSendOptionStatus);
+	elems.bsaveRunAddressIsStoreAddress.addEventListener("change", updateSendOptionStatus);
+	updateSendOptionStatus();
+
+	const updateDataToSendStatus = function() {
+		if (elems.whatToSend.value === "file") {
+			elems.dataToSendArea.classList.add("send-file-mode");
+		} else {
+			elems.dataToSendArea.classList.remove("send-file-mode");
+		}
+	};
+	elems.whatToSend.addEventListener("change", updateDataToSendStatus);
+	updateDataToSendStatus();
 });
