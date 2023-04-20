@@ -290,6 +290,8 @@ window.addEventListener("DOMContentLoaded", function() {
 		setInputStream(null);
 		audioContext.close();
 		audioContext = null;
+		elems.inputDeviceSelect.disabled = true;
+		elems.outputDeviceSelect.disabled = true;
 		updateOperationButtonStatus();
 	});
 	elems.inputDeviceSelect.disabled = true;
