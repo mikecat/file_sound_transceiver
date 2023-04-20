@@ -91,4 +91,208 @@ window.addEventListener("DOMContentLoaded", function() {
 	};
 	elems.whatToSend.addEventListener("change", updateDataToSendStatus);
 	updateDataToSendStatus();
+
+	const INPUT_DEVICE_ID_KEY = "inputDeviceId";
+	const OUTPUT_DEVICE_ID_KEY = "outputDeviceId";
+
+	let inputStream = null;
+	let inputNode = null;
+	let audioContext = null;
+
+	const updateOperationButtonStatus = function() {
+		elems.connectButton.disabled = audioContext !== null;
+		elems.disconnectButton.disabled = audioContext === null;
+	};
+
+	const setInputStream = function(stream) {
+		let newNode = null;
+		if (stream) {
+			new MediaStreamAudioSourceNode(audioContext, {
+				mediaStream: stream
+			});
+			// TODO: newNode.connect()
+		}
+		if (inputStream) {
+			inputStream.getTracks().forEach(function(track) {
+				track.stop();
+			});
+		}
+		if (inputNode) {
+			inputNode.disconnect();
+		}
+		inputStream = stream;
+		inputNode = newNode;
+	};
+
+	const updateDeviceList = function() {
+		return navigator.mediaDevices.enumerateDevices().then(function(devices) {
+			if (inputStream !== null && !inputStream.active) {
+				// 使用中の入力デバイスが切断された場合、最初の (既定の) デバイスを選択する
+				// これをしないと、アクティブなストリームが無くなり、ラベルが得られなくなる
+				for (let i = 0; i < devices.length; i++) {
+					if (devices[i].kind === "audioinput") {
+						return navigator.mediaDevices.getUserMedia(
+							{audio: {deviceId: devices[i].deviceId }}
+						).then(function(stream) {
+							setInputStream(stream);
+							// 選択後、リストの更新をやり直す
+							return updateDeviceList();
+						}, function(error) {
+							console.warn(error);
+						});
+					}
+				}
+				// 入力デバイスが見つからなかったので、デバイスリストを潰す
+				// これにより、出力デバイスで空のラベルが表示されるのを防ぐ
+				devices = [];
+			}
+			const inputDeviceId = elems.inputDeviceSelect.value;
+			const outputDeviceId = elems.outputDeviceSelect.value;
+			while (elems.inputDeviceSelect.firstChild) {
+				elems.inputDeviceSelect.removeChild(elems.inputDeviceSelect.firstChild);
+			}
+			while (elems.outputDeviceSelect.firstChild) {
+				elems.outputDeviceSelect.removeChild(elems.outputDeviceSelect.firstChild);
+			}
+			let inputDeviceFound = false, outputDeviceFound = false;
+			devices.forEach(function(device) {
+				const option = document.createElement("option");
+				option.setAttribute("value", device.deviceId);
+				option.appendChild(document.createTextNode(device.label));
+				if (device.kind === "audioinput") {
+					elems.inputDeviceSelect.appendChild(option);
+					inputDeviceFound = true;
+				} else if (device.kind === "audiooutput") {
+					if (!elems.outputDeviceSelect.firstChild) {
+						// 最初の項目は既定のはずなので、IDは空とする
+						// これをしないと、Google Chrome 112でデバイスが見つからないエラーになった
+						option.setAttribute("value", "");
+					}
+					elems.outputDeviceSelect.appendChild(option);
+					outputDeviceFound = true;
+				}
+			});
+			if (inputDeviceFound) {
+				for (let i = 0; i < elems.inputDeviceSelect.options.length; i++) {
+					if (elems.inputDeviceSelect.options[i].value === inputDeviceId) {
+						elems.inputDeviceSelect.selectedIndex = i;
+						break;
+					}
+				}
+			} else {
+				const optionJa = document.createElement("option");
+				optionJa.setAttribute("value", "");
+				optionJa.setAttribute("class", "lang-ja");
+				optionJa.appendChild(document.createTextNode("既定"));
+				elems.inputDeviceSelect.appendChild(optionJa);
+				const optionEn = document.createElement("option");
+				optionEn.setAttribute("value", "");
+				optionEn.setAttribute("class", "lang-en");
+				optionEn.appendChild(document.createTextNode("Default"));
+				elems.inputDeviceSelect.appendChild(optionEn);
+			}
+			if (outputDeviceFound) {
+				for (let i = 0; i < elems.outputDeviceSelect.options.length; i++) {
+					if (elems.outputDeviceSelect.options[i].value === outputDeviceId) {
+						elems.outputDeviceSelect.selectedIndex = i;
+						break;
+					}
+				}
+			} else {
+				const optionJa = document.createElement("option");
+				optionJa.setAttribute("value", "");
+				optionJa.setAttribute("class", "lang-ja");
+				optionJa.appendChild(document.createTextNode("既定"));
+				elems.outputDeviceSelect.appendChild(optionJa);
+				const optionEn = document.createElement("option");
+				optionEn.setAttribute("value", "");
+				optionEn.setAttribute("class", "lang-en");
+				optionEn.appendChild(document.createTextNode("Default"));
+				elems.outputDeviceSelect.appendChild(optionEn);
+			}
+			if (!inputDeviceFound || !outputDeviceFound) {
+				updateLanguage();
+			}
+			if (audioContext && audioContext.setSinkId) {
+				audioContext.setSinkId(elems.outputDeviceSelect.value);
+			}
+		}, function(error) {
+			console.warn(error);
+		});
+	};
+
+	elems.inputDeviceSelect.addEventListener("change", function() {
+		storeLocalStorage(INPUT_DEVICE_ID_KEY, elems.inputDeviceSelect.value);
+		if (audioContext) {
+			navigator.mediaDevices.getUserMedia(
+				{audio: {deviceId: {exact: elems.inputDeviceSelect.value}}}
+			).then(function(stream) {
+				setInputStream(stream);
+			}, function(error) {
+				console.warn(error);
+			});
+		}
+	});
+
+	elems.outputDeviceSelect.addEventListener("change", function() {
+		storeLocalStorage(OUTPUT_DEVICE_ID_KEY, elems.outputDeviceSelect.value);
+		if (audioContext && audioContext.setSinkId) {
+			audioContext.setSinkId(elems.outputDeviceSelect.value);
+		}
+	});
+
+	elems.connectButton.addEventListener("click", function() {
+		if (audioContext !== null) return;
+		audioContext = new AudioContext();
+		navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
+			return updateDeviceList().then(function() {
+				stream.getTracks().forEach(function(track) {
+					track.stop();
+				});
+			});
+		}, function(error) {
+			console.warn(error);
+		}).then(function() {
+			elems.inputDeviceSelect.disabled = false;
+			elems.outputDeviceSelect.disabled = !audioContext.setSinkId;
+			const inputDeviceId = loadLocalStorage(INPUT_DEVICE_ID_KEY);
+			if (inputDeviceId) {
+				for (let i = 0; i < elems.inputDeviceSelect.options.length; i++) {
+					if (elems.inputDeviceSelect.options[i].value === inputDeviceId) {
+						elems.inputDeviceSelect.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			const outputDeviceId = loadLocalStorage(OUTPUT_DEVICE_ID_KEY);
+			if (outputDeviceId) {
+				for (let i = 0; i < elems.outputDeviceSelect.options.length; i++) {
+					if (elems.outputDeviceSelect.options[i].value === outputDeviceId) {
+						elems.outputDeviceSelect.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			return navigator.mediaDevices.getUserMedia(
+				{audio: {deviceId: elems.inputDeviceSelect.value}}
+			).then(function(stream) {
+				setInputStream(stream);
+				navigator.mediaDevices.addEventListener("devicechange", updateDeviceList);
+				updateOperationButtonStatus();
+			}, function(error) {
+				console.warn(error);
+			});
+		});
+	});
+	elems.disconnectButton.addEventListener("click", function() {
+		if (audioContext === null) return;
+		navigator.mediaDevices.removeEventListener("devicechange", updateDeviceList);
+		setInputStream(null);
+		audioContext.close();
+		audioContext = null;
+		updateOperationButtonStatus();
+	});
+	elems.inputDeviceSelect.disabled = true;
+	elems.outputDeviceSelect.disabled = true;
+	updateOperationButtonStatus();
 });
