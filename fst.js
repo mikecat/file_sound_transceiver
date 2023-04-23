@@ -95,9 +95,11 @@ window.addEventListener("DOMContentLoaded", function() {
 	const INPUT_DEVICE_ID_KEY = "inputDeviceId";
 	const OUTPUT_DEVICE_ID_KEY = "outputDeviceId";
 
+	let audioContext = null;
 	let inputStream = null;
 	let inputNode = null;
-	let audioContext = null;
+	let senderNode = null;
+	let receiverNode = null;
 
 	const updateOperationButtonStatus = function() {
 		elems.connectButton.disabled = audioContext !== null;
@@ -107,10 +109,10 @@ window.addEventListener("DOMContentLoaded", function() {
 	const setInputStream = function(stream) {
 		let newNode = null;
 		if (stream) {
-			new MediaStreamAudioSourceNode(audioContext, {
+			newNode = new MediaStreamAudioSourceNode(audioContext, {
 				mediaStream: stream
 			});
-			// TODO: newNode.connect()
+			if(receiverNode !== null) newNode.connect(receiverNode);
 		}
 		if (inputStream) {
 			inputStream.getTracks().forEach(function(track) {
@@ -244,44 +246,60 @@ window.addEventListener("DOMContentLoaded", function() {
 	elems.connectButton.addEventListener("click", function() {
 		if (audioContext !== null) return;
 		audioContext = new AudioContext();
-		navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
-			return updateDeviceList().then(function() {
-				stream.getTracks().forEach(function(track) {
-					track.stop();
+		audioContext.audioWorklet.addModule("soundIO.js").then(function() {
+			senderNode = new AudioWorkletNode(audioContext, "sound-encoder", {
+				numberOfInputs: 0,
+				numberOfOutputs: 1,
+				outputChannelCount: [1],
+			});
+			senderNode.connect(audioContext.destination);
+			receiverNode = new AudioWorkletNode(audioContext, "sound-decoder", {
+				numberOfInputs: 1,
+				numberOfOutputs: 0,
+			});
+			receiverNode.channelCount = 1;
+			receiverNode.channelCountMode = "explicit";
+			return navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
+				return updateDeviceList().then(function() {
+					stream.getTracks().forEach(function(track) {
+						track.stop();
+					});
+				});
+			}, function(error) {
+				console.warn(error);
+			}).then(function() {
+				elems.inputDeviceSelect.disabled = false;
+				elems.outputDeviceSelect.disabled = !audioContext.setSinkId;
+				const inputDeviceId = loadLocalStorage(INPUT_DEVICE_ID_KEY);
+				if (inputDeviceId) {
+					for (let i = 0; i < elems.inputDeviceSelect.options.length; i++) {
+						if (elems.inputDeviceSelect.options[i].value === inputDeviceId) {
+							elems.inputDeviceSelect.selectedIndex = i;
+							break;
+						}
+					}
+				}
+				const outputDeviceId = loadLocalStorage(OUTPUT_DEVICE_ID_KEY);
+				if (outputDeviceId) {
+					for (let i = 0; i < elems.outputDeviceSelect.options.length; i++) {
+						if (elems.outputDeviceSelect.options[i].value === outputDeviceId) {
+							elems.outputDeviceSelect.selectedIndex = i;
+							break;
+						}
+					}
+				}
+				return navigator.mediaDevices.getUserMedia(
+					{audio: {deviceId: elems.inputDeviceSelect.value}}
+				).then(function(stream) {
+					setInputStream(stream);
+					navigator.mediaDevices.addEventListener("devicechange", updateDeviceList);
+					updateOperationButtonStatus();
+				}, function(error) {
+					console.warn(error);
 				});
 			});
 		}, function(error) {
-			console.warn(error);
-		}).then(function() {
-			elems.inputDeviceSelect.disabled = false;
-			elems.outputDeviceSelect.disabled = !audioContext.setSinkId;
-			const inputDeviceId = loadLocalStorage(INPUT_DEVICE_ID_KEY);
-			if (inputDeviceId) {
-				for (let i = 0; i < elems.inputDeviceSelect.options.length; i++) {
-					if (elems.inputDeviceSelect.options[i].value === inputDeviceId) {
-						elems.inputDeviceSelect.selectedIndex = i;
-						break;
-					}
-				}
-			}
-			const outputDeviceId = loadLocalStorage(OUTPUT_DEVICE_ID_KEY);
-			if (outputDeviceId) {
-				for (let i = 0; i < elems.outputDeviceSelect.options.length; i++) {
-					if (elems.outputDeviceSelect.options[i].value === outputDeviceId) {
-						elems.outputDeviceSelect.selectedIndex = i;
-						break;
-					}
-				}
-			}
-			return navigator.mediaDevices.getUserMedia(
-				{audio: {deviceId: elems.inputDeviceSelect.value}}
-			).then(function(stream) {
-				setInputStream(stream);
-				navigator.mediaDevices.addEventListener("devicechange", updateDeviceList);
-				updateOperationButtonStatus();
-			}, function(error) {
-				console.warn(error);
-			});
+			console.error(error);
 		});
 	});
 	elems.disconnectButton.addEventListener("click", function() {
@@ -290,6 +308,10 @@ window.addEventListener("DOMContentLoaded", function() {
 		setInputStream(null);
 		audioContext.close();
 		audioContext = null;
+		if (senderNode) senderNode.port.close();
+		senderNode = null;
+		if (receiverNode) receiverNode.port.close();
+		receiverNode = null;
 		elems.inputDeviceSelect.disabled = true;
 		elems.outputDeviceSelect.disabled = true;
 		updateOperationButtonStatus();
