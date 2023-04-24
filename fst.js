@@ -243,6 +243,21 @@ window.addEventListener("DOMContentLoaded", function() {
 		}
 	});
 
+	const updateBaudRate = function() {
+		const valueStr = elems.baudRateSelect.value === "custom" ? elems.customBaudRateInput.value : elems.baudRateSelect.value;
+		const value = parseFloat(valueStr);
+		if (!isNaN(value) && value > 0) {
+			if (senderNode) {
+				senderNode.parameters.get("baudRate").value = value;
+			}
+			if (receiverNode) {
+				receiverNode.parameters.get("baudRate").value = value;
+			}
+		}
+	};
+	elems.baudRateSelect.addEventListener("change", updateBaudRate);
+	elems.customBaudRateInput.addEventListener("input", updateBaudRate);
+
 	elems.connectButton.addEventListener("click", function() {
 		if (audioContext !== null) return;
 		audioContext = new AudioContext();
@@ -259,6 +274,7 @@ window.addEventListener("DOMContentLoaded", function() {
 			});
 			receiverNode.channelCount = 1;
 			receiverNode.channelCountMode = "explicit";
+			updateBaudRate();
 			return navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
 				return updateDeviceList().then(function() {
 					stream.getTracks().forEach(function(track) {

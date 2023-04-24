@@ -1,6 +1,17 @@
 "use strict";
 
 class SoundEncoder extends AudioWorkletProcessor {
+	static get parameterDescriptors() {
+		return [
+			{
+				name: "baudRate",
+				defaultValue: 1200,
+				minValue: 0,
+				automationRate: "k-rate",
+			},
+		];
+	}
+
 	constructor(...args) {
 		super(...args);
 	}
@@ -10,6 +21,17 @@ class SoundEncoder extends AudioWorkletProcessor {
 }
 
 class SoundDecoder extends AudioWorkletProcessor {
+	static get parameterDescriptors() {
+		return [
+			{
+				name: "baudRate",
+				defaultValue: 1200,
+				minValue: 0,
+				automationRate: "k-rate",
+			},
+		];
+	}
+
 	constructor(...args) {
 		super(...args);
 	}
