@@ -62,6 +62,22 @@ window.addEventListener("DOMContentLoaded", function() {
 	elems.baudRateSelect.addEventListener("change", updateBaudRateStatus);
 	updateBaudRateStatus();
 
+	const STATUS_SENDING_FLAG = 0x10000;
+	const STATUS_RECEIVING_FLAG = 0x20000;
+
+	const STATUS_NONE = 0;
+	const STATUS_SIMPLE_SENDING = STATUS_SENDING_FLAG | 0;
+	const STATUS_XMODEM_SENDING = STATUS_SENDING_FLAG | 1;
+	const STATUS_XMODEM_SEND_RECEIVING = STATUS_SENDING_FLAG | 2;
+	const STATUS_XMODEM_SEND_CANCELING = STATUS_SENDING_FLAG | 3;
+	const STATUS_SIMPLE_RECEIVING = STATUS_RECEIVING_FLAG | 0;
+	const STATUS_XMODEM_RECEIVE_SENDING = STATUS_RECEIVING_FLAG | 1;
+	const STATUS_XMODEM_RECEIVE_CANCELING = STATUS_RECEIVING_FLAG | 2;
+
+	let senderStatus = STATUS_NONE;
+	let receiverStatus = STATUS_NONE;
+	let xmodemCancelRequested = false;
+
 	const updateSendOptionStatus = function() {
 		const isXmodem = elems.sendType.value === "xmodem";
 		elems.sendFileName.disabled = isXmodem;
@@ -76,6 +92,24 @@ window.addEventListener("DOMContentLoaded", function() {
 			elems.bsaveRunAddress.disabled = elems.bsaveRunAddressIsStoreAddress.checked;
 		}
 		elems.bsaveGetAddressFromFile.disabled = elems.sendType.value !== "bsave";
+
+		if (senderStatus !== STATUS_NONE) {
+			elems.sendType.disabled = true;
+			elems.sendFileName.disabled = true;
+			elems.setSendFileNameOnFileSelection.disabled = true;
+			bsaveGetAddressFromFile.disabled = true;
+			elems.bsaveStoreAddress.disabled = true;
+			elems.bsaveRunAddressIsStoreAddress.disabled = true;
+			elems.bsaveRunAddress.disabled = true;
+			elems.whatToSend.disabled = true;
+			elems.sendFileSelectButton.disabled = true;
+			elems.textToSend.disabled = true;
+		} else {
+			elems.sendType.disabled = false;
+			elems.whatToSend.disabled = false;
+			elems.sendFileSelectButton.disabled = false;
+			elems.textToSend.disabled = false;
+		}
 	};
 	elems.sendType.addEventListener("change", updateSendOptionStatus);
 	elems.bsaveGetAddressFromFile.addEventListener("change", updateSendOptionStatus);
@@ -104,6 +138,43 @@ window.addEventListener("DOMContentLoaded", function() {
 	const updateOperationButtonStatus = function() {
 		elems.connectButton.disabled = audioContext !== null;
 		elems.disconnectButton.disabled = audioContext === null;
+		elems.baudRateSelect.disabled = false;
+		elems.customBaudRateInput.disabled = false;
+		elems.useCrcForXmodemRecelve.disabled = false;
+		if (audioContext === null) {
+			elems.inputDeviceSelect.disabled = true;
+			elems.outputDeviceSelect.disabled = true;
+			elems.startSendButton.disabled = true;
+			elems.cancelSendButton.disabled = true;
+			elems.startXmodemReceiveButton.disabled = true;
+			elems.cancelReceiveButton.disabled = true;
+		} else {
+			elems.inputDeviceSelect.disabled = false;
+			elems.outputDeviceSelect.disabled = !audioContext.setSinkId;
+			if (senderStatus !== STATUS_NONE) {
+				elems.outputDeviceSelect.disabled = true;
+				elems.baudRateSelect.disabled = true;
+				elems.customBaudRateInput.disabled = true;
+				elems.useCrcForXmodemRecelve.disabled = true;
+				elems.startSendButton.disabled = true;
+				elems.cancelSendButton.disabled = xmodemCancelRequested;
+			} else {
+				elems.startSendButton.disabled = false;
+				elems.cancelSendButton.disabled = true;
+			}
+			if (receiverStatus !== STATUS_NONE) {
+				elems.inputDeviceSelect.disabled = true;
+				elems.baudRateSelect.disabled = true;
+				elems.customBaudRateInput.disabled = true;
+				elems.useCrcForXmodemRecelve.disabled = true;
+				elems.startXmodemReceiveButton.disabled = true;
+				elems.cancelReceiveButton.disabled = xmodemCancelRequested;
+			} else {
+				elems.startXmodemReceiveButton.disabled = senderStatus !== STATUS_NONE;
+				elems.cancelReceiveButton.disabled = true;
+			}
+		}
+		updateSendOptionStatus();
 	};
 
 	const setInputStream = function(stream) {
@@ -284,8 +355,6 @@ window.addEventListener("DOMContentLoaded", function() {
 			}, function(error) {
 				console.warn(error);
 			}).then(function() {
-				elems.inputDeviceSelect.disabled = false;
-				elems.outputDeviceSelect.disabled = !audioContext.setSinkId;
 				const inputDeviceId = loadLocalStorage(INPUT_DEVICE_ID_KEY);
 				if (inputDeviceId) {
 					for (let i = 0; i < elems.inputDeviceSelect.options.length; i++) {
@@ -328,11 +397,15 @@ window.addEventListener("DOMContentLoaded", function() {
 		senderNode = null;
 		if (receiverNode) receiverNode.port.close();
 		receiverNode = null;
-		elems.inputDeviceSelect.disabled = true;
-		elems.outputDeviceSelect.disabled = true;
+		senderStatus = STATUS_NONE;
+		receiverStatus = STATUS_NONE;
+		xmodemCancelRequested = false;
 		updateOperationButtonStatus();
 	});
-	elems.inputDeviceSelect.disabled = true;
-	elems.outputDeviceSelect.disabled = true;
 	updateOperationButtonStatus();
+
+	elems.startSendButton.addEventListener("click", function() {
+		senderStatus = STATUS_SIMPLE_SENDING;
+		updateOperationButtonStatus();
+	});
 });
