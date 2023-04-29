@@ -82,7 +82,8 @@ window.addEventListener("DOMContentLoaded", function() {
 		const isXmodem = elems.sendType.value === "xmodem";
 		elems.sendFileName.disabled = isXmodem;
 		elems.setSendFileNameOnFileSelection.disabled = isXmodem;
-		if (elems.bsaveGetAddressFromFile.checked || elems.sendType.value !== "bsave") {
+		if ((elems.whatToSend.value === "file" && elems.bsaveGetAddressFromFile.checked) ||
+		elems.sendType.value !== "bsave") {
 			elems.bsaveStoreAddress.disabled = true;
 			elems.bsaveRunAddressIsStoreAddress.disabled = true;
 			elems.bsaveRunAddress.disabled = true;
@@ -91,7 +92,7 @@ window.addEventListener("DOMContentLoaded", function() {
 			elems.bsaveRunAddressIsStoreAddress.disabled = false;
 			elems.bsaveRunAddress.disabled = elems.bsaveRunAddressIsStoreAddress.checked;
 		}
-		elems.bsaveGetAddressFromFile.disabled = elems.sendType.value !== "bsave";
+		elems.bsaveGetAddressFromFile.disabled = elems.sendType.value !== "bsave" || elems.whatToSend.value !== "file";
 
 		if (senderStatus !== STATUS_NONE) {
 			elems.sendType.disabled = true;
@@ -114,6 +115,7 @@ window.addEventListener("DOMContentLoaded", function() {
 	elems.sendType.addEventListener("change", updateSendOptionStatus);
 	elems.bsaveGetAddressFromFile.addEventListener("change", updateSendOptionStatus);
 	elems.bsaveRunAddressIsStoreAddress.addEventListener("change", updateSendOptionStatus);
+	elems.whatToSend.addEventListener("change", updateSendOptionStatus);
 	updateSendOptionStatus();
 
 	const updateDataToSendStatus = function() {
