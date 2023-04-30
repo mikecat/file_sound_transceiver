@@ -131,6 +131,7 @@
 <span id="fileToSendDropArea">
 <span style="margin-left: 1em;">
 <span style="display: inline-block; margin-bottom: 1em;">
+<input type="file" id="sendFileInput" style="display: none;">
 <button type="button" id="sendFileSelectButton" style="margin-right: 0.5em;">
 <span class="lang-ja">ファイルを選択</span>
 <span class="lang-en">Select a file</span>
@@ -139,8 +140,12 @@
 <span class="lang-en">or drag-and-drop the file to select into this box.</span>
 </span><br>
 <span>
+<span id="noFileSelectedMessage">
 <span class="lang-ja">ファイルが選択されていません</span>
 <span class="lang-en">No file is selected.</span>
+</span>
+<span id="selectedFileNameSpan">
+</span>
 </span>
 </span>
 </span>

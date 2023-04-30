@@ -5,6 +5,50 @@ window.addEventListener("DOMContentLoaded", function() {
 	document.querySelectorAll("*").forEach(function(e) {
 		if (e.id) elems[e.id] = e;
 	});
+	const utf8Encoder = new TextEncoder("utf-8");
+
+	const setNewlineToCrlf = function(str) {
+		return str.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n/g, "\r\n");
+	};
+	const numberToStrWithComma = function(num) {
+		let numStr = num.toString();
+		let res = "";
+		while (numStr.length > 3) {
+			res += "," + numStr.substring(numStr.length - 3);
+			numStr = numStr.substring(0, numStr.length - 3);
+		}
+		return numStr + res;
+	};
+	const inputFileNameToSendFileName = function(str) {
+		const msxCharData = charConverter.toMsxChars(str);
+		const msxCharData2 = [];
+		for (let i = 0; i < msxCharData.length; i++) {
+			if (msxCharData[i] >= 0) msxCharData2.push(msxCharData[i]);
+		}
+		const filteredData = charConverter.fromMsxChars(msxCharData2).toUpperCase();
+		const LIMIT = 6;
+		// 全体が入る場合、全体を返す
+		if (filteredData.length <= LIMIT) return filteredData;
+		// 拡張子を除くと入る場合、拡張子を除いた部分を返す
+		const periodPos = filteredData.indexOf(".");
+		if (periodPos > 0 && periodPos <= LIMIT) return filteredData.substring(0, periodPos);
+		// 規定文字数で切って返す
+		return filteredData.substring(0, LIMIT);
+	};
+	const parseAddress = function(str) {
+		const strTrimmed = str.replace(/^\s+/, "").replace(/\s+$/, "");
+		if (strTrimmed.substring(0, 2).toUpperCase() === "&H") {
+			return parseInt(strTrimmed.substring(2), 16);
+		} else if (strTrimmed.substring(0, 2).toUpperCase() === "&O") {
+			return parseInt(strTrimmed.substring(2), 8);
+		} else if (strTrimmed.substring(0, 2).toUpperCase() === "&B") {
+			return parseInt(strTrimmed.substring(2), 2);
+		} else if (strTrimmed.substring(strTrimmed.length - 1).toUpperCase() === "H") {
+			return parseInt(strTrimmed.substring(0, strTrimmed.length - 1), 16);
+		} else {
+			return parseInt(strTrimmed);
+		}
+	};
 
 	const loadLocalStorage = function(key) {
 		try {
@@ -34,6 +78,19 @@ window.addEventListener("DOMContentLoaded", function() {
 			}
 		}
 	}
+
+	const selectMsgLang = function(msgs) {
+		const lang = elems.languageSelect.value;
+		if (lang in msgs) {
+			return msgs[lang];
+		} else if ("en" in msgs) {
+			return msgs["en"];
+		} else {
+			console.warn("no specified language \"" + lang + " \" nor \"en\" found");
+			console.warn(msgs);
+			return "";
+		}
+	};
 
 	const updateLanguage = function() {
 		const lang = elems.languageSelect.value;
@@ -406,8 +463,284 @@ window.addEventListener("DOMContentLoaded", function() {
 	});
 	updateOperationButtonStatus();
 
+	let selectedFile = null;
+	const showSelectedFile = function() {
+		if (selectedFile !== null) {
+			elems.selectedFileNameSpan.textContent = selectedFile.name + " (" +
+				numberToStrWithComma(selectedFile.size) + " B)";
+			elems.noFileSelectedMessage.style.display = "none";
+		} else {
+			elems.selectedFileNameSpan.textContent = "";
+			elems.noFileSelectedMessage.style.display = "";
+		}
+	};
+	elems.sendFileSelectButton.addEventListener("click", function() {
+		elems.sendFileInput.click();
+	});
+	elems.sendFileInput.addEventListener("input", function() {
+		if (elems.sendFileInput.files.length > 0) {
+			selectedFile = elems.sendFileInput.files[0];
+			if (elems.setSendFileNameOnFileSelection.checked) {
+				elems.sendFileName.value = inputFileNameToSendFileName(selectedFile.name);
+			}
+		} else {
+			selectedFile = null;
+		}
+		showSelectedFile();
+	});
+	elems.fileToSendDropArea.addEventListener("dragover", function(e) {
+		if (e.dataTransfer.types.indexOf("Files") >= 0) {
+			e.preventDefault();
+			e.dataTransfer.dropEffect = "copy";
+		}
+	});
+	elems.fileToSendDropArea.addEventListener("drop", function(e) {
+		if (e.dataTransfer.files.length > 0) {
+			e.preventDefault();
+			selectedFile = e.dataTransfer.files[0];
+			if (elems.setSendFileNameOnFileSelection.checked) {
+				elems.sendFileName.value = inputFileNameToSendFileName(selectedFile.name);
+			}
+			showSelectedFile();
+		}
+	});
+
 	elems.startSendButton.addEventListener("click", function() {
-		senderStatus = STATUS_SIMPLE_SENDING;
-		updateOperationButtonStatus();
+		if (senderNode === null) {
+			alert(selectMsgLang({
+				"ja": "接続されていません。",
+				"en": "Not connected to sound devices.",
+			}));
+			return;
+		}
+		let fileNameData = null;
+		if (elems.sendType.value !== "xmodem") {
+			const fileNameDataRaw = charConverter.toMsxChars(sendFileName.value);
+			for (let i = 0; i < fileNameDataRaw.length; i++) {
+				if (fileNameDataRaw[i] < 0) {
+					alert(selectMsgLang({
+						"ja": "ファイル名が不正です。",
+						"en": "Specified file name is invalid.",
+					}));
+					return;
+				}
+			}
+			if (fileNameDataRaw.length > 6) {
+				alert(selectMsgLang({
+					"ja": "ファイル名が長すぎます。",
+					"en": "Specified file name is too long.",
+				}));
+				return;
+			}
+			while (fileNameDataRaw.length < 6) {
+				fileNameDataRaw.push(0x20);
+			}
+			fileNameData = new Uint8Array(fileNameDataRaw);
+		}
+		let filePromise;
+		if (elems.whatToSend.value === "file") {
+			filePromise = new Promise(function(resolve, reject){
+				if (selectedFile === null) {
+					reject(selectMsgLang({
+						"ja": "ファイルが選択されていません。",
+						"en": "No files are selected.",
+					}));
+				} else {
+					selectedFile.arrayBuffer().then(function(data) {
+						resolve(new Uint8Array(data));
+					}, function(error) {
+						console.warn(error);
+						reject(selectMsgLang({
+							"ja": "ファイルの読み込みに失敗しました。",
+							"en": "Failed to load your file.",
+						}));
+					});
+				}
+			});
+		} else if (elems.whatToSend.value === "text-msx") {
+			const textData = charConverter.toMsxChars(setNewlineToCrlf(textToSend.value));
+			filePromise = new Promise(function(resolve, reject) {
+				let unusableChars = "";
+				for (let i = 0; i < textData.length; i++) {
+					if (textData[i] < 0) {
+						// TODO: サロゲートペアの考慮
+						const c = String.fromCharCode(-textData[i]);
+						if (unusableChars.indexOf(c) < 0) unusableChars += c;
+					}
+				}
+				if (unusableChars !== "") {
+					const LIMIT = 10;
+					if (unusableChars.length > LIMIT + 1) {
+						unusableChars = unusableChars.substring(0, LIMIT) + "…";
+					}
+					reject(selectMsgLang({
+						"ja": "以下の使えない文字が含まれています。: ",
+						"en": "Your text contains these unusable characters: ",
+					}) + unusableChars);
+				} else {
+					resolve(new Uint8Array(textData));
+				}
+			});
+		} else if (elems.whatToSend.value === "text-utf8") {
+			const textData = utf8Encoder.encode(setNewlineToCrlf(textToSend.value));
+			filePromse = new Promse(function(resolve, reject) {
+				resolve(textData);
+			});
+		} else {
+			filePromse = new Promse(function(resolve, reject) {
+				reject(selectMsgLang({
+					"ja": "送信データの種類が不正です。",
+					"en": "Invalid kind of data to send.",
+				}));
+			});
+		}
+		filePromise.then(function(dataUint8) {
+			const sendType = elems.sendType.value;
+			if (sendType === "xmodem") {
+				throw selectMsgLang({
+					"ja": "XMODEM は未実装です。",
+					"en": "XMODEM is not implemented.",
+				});
+			} else {
+				const dataToSend = [];
+				dataToSend.push({"type": "long_header"});
+				if (sendType === "csave") {
+					dataToSend.push({
+						"type": "bytes",
+						"data": new Uint8Array(new Array(10).fill(0xD3)),
+					});
+					dataToSend.push({
+						"type": "bytes",
+						"data": fileNameData,
+					});
+					dataToSend.push({
+						"type": "blank",
+						"length_sec": 1.0,
+					});
+					dataToSend.push({"type": "short_header"});
+					dataToSend.push({
+						"type": "bytes",
+						"data": dataUint8,
+					});
+					dataToSend.push({
+						"type": "bytes",
+						"data": new Uint8Array(new Array(7).fill(0x00)),
+					});
+				} else if (sendType === "save") {
+					for (let i = 0; i < dataUint8.length - 1; i++) {
+						if (dataUint8[i] == 0x1A) {
+							throw selectMsgLang({
+								"ja": "最後以外に 0x1A を含むので SAVE で送信できません。",
+								"en": "SAVE cannot be used because your file contain 0x1A in the bytes except for the last byte.",
+							});
+						}
+					}
+					dataToSend.push({
+						"type": "bytes",
+						"data": new Uint8Array(new Array(10).fill(0xEA)),
+					});
+					dataToSend.push({
+						"type": "bytes",
+						"data": fileNameData,
+					});
+					dataToSend.push({
+						"type": "blank",
+						"length_sec": 1.0,
+					});
+					for (let i = 0; i < dataUint8.length; i += 256) {
+						let dataBlock;
+						if (i + 256 <= dataUint8.length) {
+							dataBlock = new Uint8Array(dataUint8.buffer, dataUint8.byteOffset + i, 256);
+						} else {
+							dataBlock = new Uint8Array(new Array(256).fill(0x1A));
+							dataBlock.set(dataUint8.slice(i));
+						}
+						dataToSend.push({"type": "short_header"});
+						dataToSend.push({
+							"type": "bytes",
+							"data": dataBlock,
+						});
+					}
+					if (dataUint8.length % 256 === 0 && (dataUint8.length === 0 || dataUint8[dataUint8.length - 1] !== 0x1A)) {
+						dataToSend.push({"type": "short_header"});
+						dataToSend.push({
+							"type": "bytes",
+							"data": new Uint8Array(new Array(256).fill(0x1A)),
+						});
+					}
+				} else if (sendType === "bsave") {
+					let placeAddress, runAddress, endAddress;
+					let dataToSend;
+					if (elems.whatToSend.value === "file" && elems.bsaveGetAddressFromFile.checked) {
+						if (dataUint8.length < 7 || dataUint8[0] !== 0xFE) {
+							throw selectMsgLang({
+								"ja": "BSAVE ヘッダーがありません。",
+								"en": "BSAVE header doesn't exist in your file.",
+							});
+						}
+						dataToSend = new Uint8Array(dataUint8.buffer, dataUint8.byteOffset + 7, dataUint8.byteLength - 7);
+						placeAddress = dataUint8[1] | (dataUint8[2] << 8);
+						endAddress = dataUint8[3] | (dataUint8[4] << 8);
+						runAddress = dataUint8[5] | (dataUint8[6] << 8);
+					} else {
+						dataToSend = dataUint8;
+						placeAddress = parseAddress(elems.bsaveStoreAddress.value);
+						runAddress = elems.bsaveRunAddressIsStoreAddress.checked ? placeAddress : parseAddress(elems.bsaveRunAddress.value);
+						endAddress = placeAddress + dataToSend.length - 1;
+					}
+					if (placeAddress < 0 || 0xffff <= placeAddress ||
+					runAddress < 0 || 0xffff <= runAddress ||
+					endAddress < 0 || 0xffff <= endAddress) {
+						throw selectMsgLang({
+							"ja": "アドレスが不正です。",
+							"en": "Invalid address(es) are set.",
+						});
+					}
+					if (placeAddress + dataToSend.length - 1 !== endAddress) {
+						if (((placeAddress + dataToSend.length - 1) & 0xffff) === endAddress) {
+							if (!confirm(selectMsgLang({
+								"ja": "アドレスがラップアラウンドします。\nこのまま送信しますか？",
+								"en": "The address wrap-arounds.\nSend anyway?",
+							}))) return;
+						} else {
+							if (!confirm(selectMsgLang({
+								"ja": "最終アドレスがファイルサイズと合いません。\nこのまま送信しますか？",
+								"en": "The last address doesn't match the file size.\nSend anyway?",
+							}))) return;
+						}
+					}
+					dataToSend.push({
+						"type": "bytes",
+						"data": new Uint8Array(new Array(10).fill(0xD0)),
+					});
+					dataToSend.push({
+						"type": "bytes",
+						"data": fileNameData,
+					});
+					dataToSend.push({
+						"type": "blank",
+						"length_sec": 1.0,
+					});
+					dataToSend.push({"type": "short_header"});
+					dataToSend.push({
+						"type": "bytes",
+						"data": new Uint8Array([
+							placeAddress & 0xff, (placeAddress >> 8) & 0xff,
+							endAddress & 0xff, (endAddress >> 8) & 0xff,
+							runAddress & 0xff, (runAddress >> 8) & 0xff,
+						]),
+					});
+					dataToSend.push({
+						"type": "bytes",
+						"data": dataToSend,
+					});
+				}
+				senderNode.port.postMessage(dataToSend);
+				senderStatus = STATUS_SIMPLE_SENDING;
+			}
+			updateOperationButtonStatus();
+		}).catch(function(error) {
+			alert(error);
+		});
 	});
 });
