@@ -388,6 +388,9 @@ window.addEventListener("DOMContentLoaded", function() {
 	elems.baudRateSelect.addEventListener("change", updateBaudRate);
 	elems.customBaudRateInput.addEventListener("input", updateBaudRate);
 
+	let nextSendingCommandsId = 0;
+	let sendingCommandsId = null;
+
 	elems.connectButton.addEventListener("click", function() {
 		if (audioContext !== null) return;
 		audioContext = new AudioContext();
@@ -397,6 +400,15 @@ window.addEventListener("DOMContentLoaded", function() {
 				numberOfOutputs: 1,
 				outputChannelCount: [1],
 			});
+			senderNode.port.onmessage = function(event) {
+				const data = event.data;
+				if (data.type === "done") {
+					if (senderStatus === STATUS_SIMPLE_SENDING && data.id === sendingCommandsId) {
+						senderStatus = STATUS_NONE;
+						updateOperationButtonStatus();
+					}
+				}
+			};
 			senderNode.connect(audioContext.destination);
 			receiverNode = new AudioWorkletNode(audioContext, "sound-decoder", {
 				numberOfInputs: 1,
@@ -500,12 +512,14 @@ window.addEventListener("DOMContentLoaded", function() {
 			selectedFile = e.dataTransfer.files[0];
 			if (elems.setSendFileNameOnFileSelection.checked) {
 				elems.sendFileName.value = inputFileNameToSendFileName(selectedFile.name);
+				updateOperationButtonStatus();
 			}
 			showSelectedFile();
 		}
 	});
 
 	elems.startSendButton.addEventListener("click", function() {
+		if (senderStatus !== STATUS_NONE) return;
 		if (senderNode === null) {
 			alert(selectMsgLang({
 				"ja": "接続されていません。",
@@ -735,7 +749,12 @@ window.addEventListener("DOMContentLoaded", function() {
 						"data": dataToSend,
 					});
 				}
-				senderNode.port.postMessage(dataToSend);
+				sendingCommandsId = nextSendingCommandsId++;
+				senderNode.port.postMessage({
+					"type": "send",
+					"commands": dataToSend,
+					"id": sendingCommandsId,
+				});
 				senderStatus = STATUS_SIMPLE_SENDING;
 			}
 			updateOperationButtonStatus();
